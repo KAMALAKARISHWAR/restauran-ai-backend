@@ -1,8 +1,8 @@
 flask
 flask-cors
-tensorflow-cpu==2.15.0
-keras==2.15.0
+tensorflow-cpu==2.12.0
+keras==2.12.0
 gunicorn
 pandas
-numpy<2.0.0
+numpy<1.24
 scikit-learn
