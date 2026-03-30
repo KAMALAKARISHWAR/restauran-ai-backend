@@ -6,6 +6,8 @@ import tf_keras as keras
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from tf_keras.preprocessing.sequence import pad_sequences
+from tf_keras.models import Sequential
+from tf_keras.layers import Embedding, GlobalAveragePooling1D, Dense, Input
 
 app = Flask(__name__)
 CORS(app)
@@ -16,15 +18,26 @@ tokenizer = None
 def get_resources():
     global model, tokenizer
     if model is None:
-        print("--- Reconstructing AI Model ---")
+        print("--- Manually Reconstructing Model Structure ---")
         try:
-            # OPTION 1: Attempt load with compilation disabled
-            model = keras.models.load_model('restaurant_model.h5', compile=False)
+            # 1. Define the layers manually to match your training exactly.
+            # Based on your error log (maxlen=10), this is the standard structure:
+            model = Sequential([
+                Input(shape=(10,), name="input_layer"),
+                Embedding(input_dim=1000, output_dim=16), 
+                GlobalAveragePooling1D(),
+                Dense(24, activation='relu'),
+                Dense(4, activation='softmax') # 4 classes for your 4 restaurants
+            ])
+            
+            # 2. Load ONLY the weights. This bypasses the InputLayer config error.
+            model.load_weights('restaurant_model.h5')
+            print("--- Weights Loaded Successfully ---")
+            
         except Exception as e:
-            print(f"Standard load failed, attempting weight injection: {e}")
-            # OPTION 2: If Option 1 fails, we skip the broken InputLayer config
-            # and load only the mathematical weights into the model.
-            model = tf.keras.models.load_model('restaurant_model.h5', compile=False, safe_mode=False)
+            print(f"Weight load failed: {e}")
+            # Fallback: try one more time with standard load if reconstruction fails
+            model = keras.models.load_model('restaurant_model.h5', compile=False)
             
     if tokenizer is None:
         print("--- Loading Tokenizer ---")
@@ -32,7 +45,6 @@ def get_resources():
             tokenizer = pickle.load(handle)
     return model, tokenizer
 
-# Mock Database
 DATABASE = {
     0: {"name": "L'Amour Bistro", "cuisine": "French", "rating": 4.9},
     1: {"name": "Fire & Spice", "cuisine": "Thai/Indian", "rating": 4.3},
@@ -48,31 +60,26 @@ def health_check():
 def predict():
     try:
         ai_model, ai_tokenizer = get_resources()
-        
         user_data = request.json
         prompt = user_data.get('prompt', '')
 
-        # Preprocessing
         seq = ai_tokenizer.texts_to_sequences([prompt])
         padded = pad_sequences(seq, maxlen=10)
         
-        # Prediction
         prediction = ai_model.predict(padded)[0]
 
         results = []
         for i, confidence in enumerate(prediction):
-            if confidence > 0.1:
-                # Ensure index exists in DATABASE to prevent 500 errors
-                if i in DATABASE:
-                    res = DATABASE[i].copy()
-                    res['match'] = f"{int(confidence * 100)}%"
-                    results.append(res)
+            if confidence > 0.1 and i in DATABASE:
+                res = DATABASE[i].copy()
+                res['match'] = f"{int(confidence * 100)}%"
+                results.append(res)
         
         results = sorted(results, key=lambda x: x['match'], reverse=True)
         return jsonify({"results": results})
         
     except Exception as e:
-        print(f"Error during prediction: {e}")
+        print(f"Prediction Error: {e}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
