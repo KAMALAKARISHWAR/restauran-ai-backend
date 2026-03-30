@@ -5,4 +5,5 @@ tf_keras
 gunicorn
 pandas
 numpy==1.26.4
+h5py==3.10.0
 scikit-learn
