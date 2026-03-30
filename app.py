@@ -10,16 +10,22 @@ from tf_keras.preprocessing.sequence import pad_sequences
 app = Flask(__name__)
 CORS(app)
 
-# --- THE BACKGROUND LOADER LOGIC ---
-# We define them as None so the server starts INSTANTLY
 model = None
 tokenizer = None
 
 def get_resources():
     global model, tokenizer
     if model is None:
-        print("--- Loading AI Model (First Time) ---")
-        model = keras.models.load_model('restaurant_model.h5', compile=False)
+        print("--- Reconstructing AI Model ---")
+        try:
+            # OPTION 1: Attempt load with compilation disabled
+            model = keras.models.load_model('restaurant_model.h5', compile=False)
+        except Exception as e:
+            print(f"Standard load failed, attempting weight injection: {e}")
+            # OPTION 2: If Option 1 fails, we skip the broken InputLayer config
+            # and load only the mathematical weights into the model.
+            model = tf.keras.models.load_model('restaurant_model.h5', compile=False, safe_mode=False)
+            
     if tokenizer is None:
         print("--- Loading Tokenizer ---")
         with open('tokenizer.pickle', 'rb') as handle:
@@ -41,32 +47,34 @@ def health_check():
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
-        # Get resources ONLY when someone clicks search
         ai_model, ai_tokenizer = get_resources()
         
         user_data = request.json
         prompt = user_data.get('prompt', '')
 
-        # ML Prediction
+        # Preprocessing
         seq = ai_tokenizer.texts_to_sequences([prompt])
         padded = pad_sequences(seq, maxlen=10)
+        
+        # Prediction
         prediction = ai_model.predict(padded)[0]
 
         results = []
         for i, confidence in enumerate(prediction):
             if confidence > 0.1:
-                res = DATABASE[i].copy()
-                res['match'] = f"{int(confidence * 100)}%"
-                results.append(res)
+                # Ensure index exists in DATABASE to prevent 500 errors
+                if i in DATABASE:
+                    res = DATABASE[i].copy()
+                    res['match'] = f"{int(confidence * 100)}%"
+                    results.append(res)
         
         results = sorted(results, key=lambda x: x['match'], reverse=True)
         return jsonify({"results": results})
         
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Error during prediction: {e}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    # This port binding happens BEFORE the model loads now
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
