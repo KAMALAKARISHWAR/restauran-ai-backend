@@ -1,19 +1,20 @@
-import os
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import tensorflow as tf
 import pickle
 import numpy as np
-import tensorflow as tf
-# Force Keras 2 usage for loading legacy .h5 models
-from tensorflow.keras.models import load_model
-from tensorflow.keras.preprocessing.sequence import pad_sequences
+import os
 
 app = Flask(__name__)
 CORS(app)
 
-# Use the compile=False flag to skip layer-specific configuration errors
-model = load_model('restaurant_model.h5', compile=False)
+# SAFEST WAY TO LOAD: Access via tf.keras directly
+model = tf.keras.models.load_model('restaurant_model.h5', compile=False)
 
 with open('tokenizer.pickle', 'rb') as handle:
     tokenizer = pickle.load(handle)
+
+from tensorflow.keras.preprocessing.sequence import pad_sequences
 
 # Mock Database for the results
 DATABASE = {
