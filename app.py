@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import tensorflow as tf
+import tf_keras as keras # This uses the legacy bridge we just installed
 import pickle
 import numpy as np
 import os
@@ -8,13 +9,14 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-# SAFEST WAY TO LOAD: Access via tf.keras directly
-model = tf.keras.models.load_model('restaurant_model.h5', compile=False)
+# Use the legacy loader
+model = keras.models.load_model('restaurant_model.h5', compile=False)
 
 with open('tokenizer.pickle', 'rb') as handle:
     tokenizer = pickle.load(handle)
 
-from tensorflow.keras.preprocessing.sequence import pad_sequences
+# Update this import as well
+from tf_keras.preprocessing.sequence import pad_sequences
 
 # Mock Database for the results
 DATABASE = {
