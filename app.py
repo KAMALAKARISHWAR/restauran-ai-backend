@@ -1,9 +1,11 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import tensorflow as tf
+from tensorflow.keras.models import load_model # Fixed the space to an underscore
 import pickle
 import numpy as np
 from tensorflow.keras.preprocessing.sequence import pad_sequences
+import os # Added to handle dynamic ports
 
 app = Flask(__name__)
 CORS(app) # Allows your Android app to connect
@@ -48,4 +50,6 @@ def predict():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5000)
+    # Get port from environment variable, default to 5000 for local testing
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
