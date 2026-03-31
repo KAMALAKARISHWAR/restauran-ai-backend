@@ -4,8 +4,9 @@ import numpy as np
 import tensorflow as tf
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-# Use standard TensorFlow Keras imports
 from tensorflow.keras.preprocessing.sequence import pad_sequences
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Embedding, GlobalAveragePooling1D, Dense, Input
 
 app = Flask(__name__)
 CORS(app)
@@ -16,14 +17,27 @@ tokenizer = None
 def get_resources():
     global model, tokenizer
     if model is None:
-        print("--- Loading AI Model (.keras format) ---")
-        # Modern Keras files load directly with standard tf.keras
-        # This handles all the InputLayer config automatically
-        model = tf.keras.models.load_model('restaurant_model.keras', compile=False)
-        print("--- Model Loaded Successfully ---")
+        print("--- Manually Reconstructing Model ---")
+        # We build the structure EXACTLY as shown in your error log
+        model = Sequential([
+            Input(shape=(10,), name="input_layer"),
+            Embedding(input_dim=1000, output_dim=16), 
+            GlobalAveragePooling1D(),
+            Dense(16, activation='relu'), # Changed to 16 to match your log
+            Dense(4, activation='softmax')
+        ])
         
+        # Load weights only. This ignores 'quantization_config' and all other errors.
+        # We use the .h5 file for weights as it is more stable for this method.
+        try:
+            model.load_weights('restaurant_model.h5')
+            print("--- Weights Loaded Successfully ---")
+        except:
+            # Fallback for the .keras file if you deleted the .h5
+            model.load_weights('restaurant_model.keras')
+            print("--- Weights Loaded from .keras Successfully ---")
+            
     if tokenizer is None:
-        print("--- Loading Tokenizer ---")
         with open('tokenizer.pickle', 'rb') as handle:
             tokenizer = pickle.load(handle)
     return model, tokenizer
@@ -46,11 +60,9 @@ def predict():
         user_data = request.json
         prompt = user_data.get('prompt', '')
 
-        # Preprocessing
         seq = ai_tokenizer.texts_to_sequences([prompt])
         padded = pad_sequences(seq, maxlen=10)
         
-        # Prediction
         prediction = ai_model.predict(padded)[0]
 
         results = []
@@ -64,7 +76,7 @@ def predict():
         return jsonify({"results": results})
         
     except Exception as e:
-        print(f"Prediction Error: {e}")
+        print(f"Error: {e}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
