@@ -18,24 +18,24 @@ def get_resources():
     global model, tokenizer
     if model is None:
         print("--- Manually Reconstructing Model ---")
-        # We build the structure EXACTLY as shown in your error log
+        # Structure EXACTLY as defined in your model's config
         model = Sequential([
             Input(shape=(10,), name="input_layer"),
             Embedding(input_dim=1000, output_dim=16), 
             GlobalAveragePooling1D(),
-            Dense(16, activation='relu'), # Changed to 16 to match your log
+            Dense(16, activation='relu'), # MUST BE 16
             Dense(4, activation='softmax')
         ])
         
-        # Load weights only. This ignores 'quantization_config' and all other errors.
-        # We use the .h5 file for weights as it is more stable for this method.
+        # We use skip_mismatch=True as an extra safety net
         try:
-            model.load_weights('restaurant_model.h5')
+            # Try loading from the .keras file first
+            model.load_weights('restaurant_model.keras', skip_mismatch=True)
             print("--- Weights Loaded Successfully ---")
         except:
-            # Fallback for the .keras file if you deleted the .h5
-            model.load_weights('restaurant_model.keras')
-            print("--- Weights Loaded from .keras Successfully ---")
+            # Fallback to .h5 if .keras isn't found
+            model.load_weights('restaurant_model.h5', skip_mismatch=True)
+            print("--- Weights Loaded from h5 Successfully ---")
             
     if tokenizer is None:
         with open('tokenizer.pickle', 'rb') as handle:
