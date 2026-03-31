@@ -37,8 +37,9 @@ def get_resources():
         except Exception as e:
             print(f"Weight load failed: {e}")
             # Fallback: try one more time with standard load if reconstruction fails
-            model = keras.models.load_model('restaurant_model.h5', compile=False)
-            
+            # model = keras.models.load_model('restaurant_model.h5', compile=False)
+            # Change .h5 to .keras
+            model = tf.keras.models.load_model('restaurant_model.keras', compile=False)
     if tokenizer is None:
         print("--- Loading Tokenizer ---")
         with open('tokenizer.pickle', 'rb') as handle:
