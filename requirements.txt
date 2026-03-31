@@ -1,9 +1,8 @@
 flask
 flask-cors
-tensorflow-cpu==2.15.0
-tf_keras
+tensorflow-cpu
 gunicorn
 pandas
 numpy==1.26.4
-h5py==3.10.0
+h5py
 scikit-learn
