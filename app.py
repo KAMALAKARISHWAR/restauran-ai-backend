@@ -2,12 +2,10 @@ import os
 import pickle
 import numpy as np
 import tensorflow as tf
-import tf_keras as keras
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from tf_keras.preprocessing.sequence import pad_sequences
-from tf_keras.models import Sequential
-from tf_keras.layers import Embedding, GlobalAveragePooling1D, Dense, Input
+# Use standard TensorFlow Keras imports
+from tensorflow.keras.preprocessing.sequence import pad_sequences
 
 app = Flask(__name__)
 CORS(app)
@@ -18,28 +16,12 @@ tokenizer = None
 def get_resources():
     global model, tokenizer
     if model is None:
-        print("--- Manually Reconstructing Model Structure ---")
-        try:
-            # 1. Define the layers manually to match your training exactly.
-            # Based on your error log (maxlen=10), this is the standard structure:
-            model = Sequential([
-                Input(shape=(10,), name="input_layer"),
-                Embedding(input_dim=1000, output_dim=16), 
-                GlobalAveragePooling1D(),
-                Dense(24, activation='relu'),
-                Dense(4, activation='softmax') # 4 classes for your 4 restaurants
-            ])
-            
-            # 2. Load ONLY the weights. This bypasses the InputLayer config error.
-            model.load_weights('restaurant_model.h5')
-            print("--- Weights Loaded Successfully ---")
-            
-        except Exception as e:
-            print(f"Weight load failed: {e}")
-            # Fallback: try one more time with standard load if reconstruction fails
-            # model = keras.models.load_model('restaurant_model.h5', compile=False)
-            # Change .h5 to .keras
-            model = tf.keras.models.load_model('restaurant_model.keras', compile=False)
+        print("--- Loading AI Model (.keras format) ---")
+        # Modern Keras files load directly with standard tf.keras
+        # This handles all the InputLayer config automatically
+        model = tf.keras.models.load_model('restaurant_model.keras', compile=False)
+        print("--- Model Loaded Successfully ---")
+        
     if tokenizer is None:
         print("--- Loading Tokenizer ---")
         with open('tokenizer.pickle', 'rb') as handle:
@@ -64,9 +46,11 @@ def predict():
         user_data = request.json
         prompt = user_data.get('prompt', '')
 
+        # Preprocessing
         seq = ai_tokenizer.texts_to_sequences([prompt])
         padded = pad_sequences(seq, maxlen=10)
         
+        # Prediction
         prediction = ai_model.predict(padded)[0]
 
         results = []
