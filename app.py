@@ -1,69 +1,40 @@
-import os
-import pickle
-import numpy as np
-import tensorflow as tf
 from flask import Flask, request, jsonify
-from flask_cors import CORS
-# Standard modern imports only
-from tensorflow.keras.preprocessing.sequence import pad_sequences
+import pickle
+from sklearn.metrics.pairwise import cosine_similarity
 
 app = Flask(__name__)
-CORS(app)
 
-model = None
-tokenizer = None
+# Load the saved model and data
+with open('restaurant_model.pkl', 'rb') as f:
+    tfidf, tfidf_matrix, df = pickle.load(f)
 
-def get_resources():
-    global model, tokenizer
-    if model is None:
-        print("--- Loading AI Model (.keras format) ---")
-        # Load the modern .keras file directly
-        model = tf.keras.models.load_model('restaurant_model.keras', compile=False)
-        print("--- Model Loaded Successfully ---")
-        
-    if tokenizer is None:
-        print("--- Loading Tokenizer ---")
-        with open('tokenizer.pickle', 'rb') as handle:
-            tokenizer = pickle.load(handle)
-    return model, tokenizer
+@app.route('/recommend', methods=['POST'])
+def recommend():
+    data = request.json
+    user_prompt = data.get('prompt', '')
 
-DATABASE = {
-    0: {"name": "L'Amour Bistro", "cuisine": "French", "rating": 4.9},
-    1: {"name": "Fire & Spice", "cuisine": "Thai/Indian", "rating": 4.3},
-    2: {"name": "The Green Garden", "cuisine": "Vegan/Organic", "rating": 4.7},
-    3: {"name": "Brew & Work", "cuisine": "Cafe/Bakery", "rating": 4.5}
-}
+    if not user_prompt:
+        return jsonify({"error": "No prompt provided"}), 400
 
-@app.route('/')
-def health_check():
-    return "AI Server is Live", 200
+    # 1. Transform user prompt
+    user_vec = tfidf.transform([user_prompt])
 
-@app.route('/predict', methods=['POST'])
-def predict():
-    try:
-        ai_model, ai_tokenizer = get_resources()
-        user_data = request.json
-        prompt = user_data.get('prompt', '')
+    # 2. Calculate Similarity
+    similarity_scores = cosine_similarity(user_vec, tfidf_matrix)
+    
+    # 3. Get top 5 recommendations
+    similar_indices = similarity_scores.argsort()[0][-5:][::-1]
+    
+    results = []
+    for i in similar_indices:
+        results.append({
+            "name": df.iloc[i]['Restaurant Name'],
+            "cuisine": df.iloc[i]['Cuisines'],
+            "location": f"{df.iloc[i]['Address']}, {df.iloc[i]['City']}",
+            "rating": df.iloc[i]['Aggregate rating']
+        })
 
-        seq = ai_tokenizer.texts_to_sequences([prompt])
-        padded = pad_sequences(seq, maxlen=10)
-        
-        prediction = ai_model.predict(padded)[0]
+    return jsonify(results)
 
-        results = []
-        for i, confidence in enumerate(prediction):
-            if confidence > 0.1 and i in DATABASE:
-                res = DATABASE[i].copy()
-                res['match'] = f"{int(confidence * 100)}%"
-                results.append(res)
-        
-        results = sorted(results, key=lambda x: x['match'], reverse=True)
-        return jsonify({"results": results})
-        
-    except Exception as e:
-        print(f"Prediction Error: {e}")
-        return jsonify({"error": str(e)}), 500
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)

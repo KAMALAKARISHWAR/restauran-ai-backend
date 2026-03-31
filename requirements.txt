@@ -1,6 +1,4 @@
 flask
-flask-cors
-tensorflow-cpu
+pandas
+scikit-learn
 gunicorn
-numpy==1.26.4
-h5py
